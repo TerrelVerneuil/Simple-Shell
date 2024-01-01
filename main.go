@@ -5,101 +5,134 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"strings"
 )
 
-// Terminal contains
-type Terminal struct {
-}
-
-// Execute executes a given command
-func (t *Terminal) Execute(command string) {
-
-}
-
-// This is the main function of the application.
-// User input should be continuously read and checked for commands
-// for all the defined operations.
-// See https://golang.org/pkg/bufio/#Reader and especially the ReadLine
-// function.
 func main() {
-	wdir, _ := os.Getwd()
-	fmt.Print(wdir + "> ")
 	reader := bufio.NewReader(os.Stdin)
-	var his []string
+	var history []string
+	currentDir, _ := os.Getwd()
+
 	for {
+		fmt.Print(currentDir + "> ")
 		text, _ := reader.ReadString('\n')
-		text = strings.Replace(text, "\n", "", -1)
+		text = strings.TrimSpace(text)
 
-		switch {
-		case strings.HasPrefix(text, "cd"):
-			cd := os.Chdir(strings.SplitAfter(text, " ")[1])
-			wdir, _ = os.Getwd()
-			if cd != nil {
-				fmt.Print()
-			}
-		}
-		cmd := exec.Command(string(text))
-		cmd.Dir = wdir
-		out, _ := cmd.Output()
-		err := cmd.Run()
-		his = append(his, text)
-		switch {
-		case strings.HasPrefix(text, "history"):
-			for i := 0; i < len(his); i++ {
-				fmt.Println(string(rune(i)) + " " + his[i])
-			}
-		case strings.HasPrefix(text, "ls "):
-			files, _ := ioutil.ReadDir(strings.SplitAfter(text, " ")[1])
-			for _, f := range files {
-				fmt.Println(f.Name())
-			}
-			if err != nil {
-				fmt.Println(err)
-			}
-		case strings.HasPrefix(text, "cat"):
-			content, _ := os.ReadFile(strings.SplitAfter(text, " ")[1])
-			fmt.Println(string(content))
-			if err != nil {
-				fmt.Println(err)
-			}
+		history = append(history, text)
+		command, args := parseCommand(text)
 
-		case strings.HasPrefix(text, "exit"):
+		switch command {
+		case "cd":
+			currentDir = changeDirectory(args, currentDir)
+		case "ls":
+			listFiles(args)
+		case "cat":
+			catFile(args)
+		case "history":
+			showHistory(history)
+		case "mkdir":
+			makeDirectory(args)
+		case "rm":
+			removeFile(args)
+		case "exit":
 			os.Exit(0)
-			if err != nil {
-				fmt.Println(err)
-			}
-
-		case strings.HasPrefix(text, "mkdir"):
-			mkdir := os.Mkdir(strings.SplitAfter(text, " ")[1], 0750)
-			if mkdir != nil {
-				fmt.Println()
-			}
-		case strings.HasPrefix(text, "rm"):
-			os.Remove(strings.SplitAfter(text, " ")[1])
-			if err != nil {
-				fmt.Println(err)
-			}
-		case strings.HasPrefix(text, "create"):
-			create, _ := os.Create(strings.SplitAfter(text, " ")[1])
-			if create != nil {
-				fmt.Println()
-			}
-
-		case strings.HasPrefix(text, "rm -r"):
-			os.RemoveAll(strings.SplitAfter(text, " ")[1])
-			if err != nil {
-				fmt.Println(err)
-			}
-
+		default:
+			executeCommand(command, args, currentDir)
 		}
-
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		fmt.Print(string(out))
-		fmt.Print(wdir + "> ")
 	}
 }
+
+func parseCommand(input string) (string, string) {
+	parts := strings.SplitN(input, " ", 2)
+	var command, args string
+	command = parts[0]
+	if len(parts) > 1 {
+		args = parts[1]
+	}
+	return command, args
+}
+
+func changeDirectory(path string, currentDir string) string {
+	if path == "" {
+		fmt.Println("cd: path required")
+		return currentDir
+	}
+	err := os.Chdir(path)
+	if err != nil {
+		fmt.Println("cd:", err)
+		return currentDir
+	}
+	newDir, err := os.Getwd()
+	if err != nil {
+		fmt.Println("cd:", err)
+		return currentDir
+	}
+	return newDir
+}
+
+func listFiles(path string) {
+	if path == "" {
+		path = "."
+	}
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		fmt.Println("ls:", err)
+		return
+	}
+	for _, file := range files {
+		fmt.Println(file.Name())
+	}
+}
+
+func catFile(filename string) {
+	if filename == "" {
+		fmt.Println("cat: filename required")
+		return
+	}
+	content, err := ioutil.ReadFile(filename)
+	if err != nil {
+		fmt.Println("cat:", err)
+		return
+	}
+	fmt.Println(string(content))
+}
+
+func showHistory(history []string) {
+	for i, command := range history {
+		fmt.Printf("%d %s\n", i, command)
+	}
+}
+
+func makeDirectory(path string) {
+	if path == "" {
+		fmt.Println("mkdir: path required")
+		return
+	}
+	err := os.Mkdir(path, 0750)
+	if err != nil {
+		fmt.Println("mkdir:", err)
+	}
+}
+
+func removeFile(path string) {
+	if path == "" {
+		fmt.Println("rm: path required")
+		return
+	}
+	err := os.Remove(path)
+	if err != nil {
+		fmt.Println("rm:", err)
+	}
+}
+
+func executeCommand(command string, args string, dir string) {
+	cmd := exec.Command(command, args)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(string(out))
+}
+
