@@ -3,13 +3,10 @@ const input = document.getElementById('input');
 
 input.addEventListener('keydown', function(event) {
     if (event.key === 'Enter') {
-        
         sendCommand(input.value);
         input.value = '';
     }
 });
-
-
 
 const ws = new WebSocket('ws://localhost:8080/ws');
 
@@ -18,11 +15,24 @@ ws.onopen = function(event) {
 };
 
 ws.onmessage = function(event) {
-    terminal.innerHTML += `<div>${event.data}</div>`;
+    const safeText = escapeHTML(event.data);
+    terminal.innerHTML += `<div>${safeText}</div>`;
+};
+
+ws.onerror = function(event) {
+    console.error("WebSocket error observed:", event);
+};
+
+ws.onclose = function(event) {
+    console.log("WebSocket connection closed:", event);
 };
 
 function sendCommand(command) {
     ws.send(command);
-    terminal.innerHTML += `<div>> ${command}</div>`;
+    const safeCommand = escapeHTML(command);
+    terminal.innerHTML += `<div>> ${safeCommand}</div>`;
 }
 
+function escapeHTML(text) {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}

@@ -9,6 +9,8 @@ import (
 	"net/http"
     "github.com/gorilla/websocket"
     "log"
+	"os/exec"
+
 )
 
 var upgrader = websocket.Upgrader{
@@ -171,13 +173,14 @@ func removeFile(path string) {
 }
 
 func executeCommand(command string, args string, dir string) {
-	cmd := exec.Command(command, args)
-	cmd.Dir = dir
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Println(string(out))
+    argsSlice := strings.Fields(args) 
+    cmd := exec.Command(command, argsSlice...)
+    cmd.Dir = dir
+    out, err := cmd.CombinedOutput()
+    if err != nil {
+        fmt.Println("Error executing command:", err)
+        return
+    }
+    fmt.Println(string(out))
 }
 
