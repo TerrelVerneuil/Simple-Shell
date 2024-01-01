@@ -1,0 +1,18 @@
+.terminal {
+    background-color: black;
+    color: white;
+    padding: 10px;
+    height: 300px;
+    overflow-y: auto;
+}
+
+.input {
+    width: 100%;
+    padding: 10px;
+    background-color: black;
+    color: white;
+    border: none;
+    outline: none;
+}
+
+

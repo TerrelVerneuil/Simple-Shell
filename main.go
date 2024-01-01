@@ -6,20 +6,57 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"net/http"
+    "github.com/gorilla/websocket"
+    "log"
 )
 
+var upgrader = websocket.Upgrader{
+    CheckOrigin: func(r *http.Request) bool { return true },
+}
+
+func handleConnections(w http.ResponseWriter, r *http.Request) {
+    ws, err := upgrader.Upgrade(w, r, nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer ws.Close()
+
+    for {
+        // Read message as JSON and map it to a Message object
+        var msg string
+        err := ws.ReadJSON(&msg)
+        if err != nil {
+            log.Printf("error: %v", err)
+            break
+        }
+        // Here you can handle the message (execute command)
+        log.Printf("Received: %s\n", msg)
+        // Respond back
+        err = ws.WriteJSON("Executed: " + msg)
+        if err != nil {
+            log.Printf("error: %v", err)
+            break
+        }
+    }
+}
+
 func main() {
-	reader := bufio.NewReader(os.Stdin)
-	var history []string
-	currentDir, _ := os.Getwd()
+	go startWebServer()
+	terminal()
+}
+func terminal() {
+    reader := bufio.NewReader(os.Stdin)
+    var history []string
+    currentDir, _ := os.Getwd()
 
-	for {
-		fmt.Print(currentDir + "> ")
-		text, _ := reader.ReadString('\n')
-		text = strings.TrimSpace(text)
+    for {
+        fmt.Print(currentDir + "> ")
+        text, _ := reader.ReadString('\n')
+        text = strings.TrimSpace(text)
 
-		history = append(history, text)
-		command, args := parseCommand(text)
+        history = append(history, text)
+        command, args := parseCommand(text)
 
 		switch command {
 		case "cd":
@@ -40,6 +77,14 @@ func main() {
 			executeCommand(command, args, currentDir)
 		}
 	}
+}
+
+func startWebServer() {
+    http.HandleFunc("/ws", handleConnections)
+    log.Println("http server started on :8080")
+    if err := http.ListenAndServe(":8080", nil); err != nil {
+        log.Fatal("ListenAndServe: ", err)
+    }
 }
 
 func parseCommand(input string) (string, string) {
